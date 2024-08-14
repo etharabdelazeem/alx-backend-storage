@@ -1,54 +1,38 @@
-import requests
+#!/usr/bin/env python3
+'''A module with tools for request caching and tracking.
+'''
 import redis
-import time
+import requests
 from functools import wraps
-
-# Initialize Redis client
-redis_client = redis.Redis()
+from typing import Callable
 
 
-def cache_page(expiration: int = 10):
+redis_store = redis.Redis()
+'''The module-level Redis instance.
+'''
+
+
+def data_cacher(method: Callable) -> Callable:
+    '''Caches the output of fetched data.
     '''
-    Decorator to cache the result of a page request with an expiration time.
-    '''
-    def decorator(func):
-        @wraps(func)
-        def wrapper(url: str):
-            # Check if the result is already cached
-            cached_page = redis_client.get(f"cache:{url}")
-            if cached_page:
-                return cached_page.decode('utf-8')
-
-            # If not cached, fetch the page
-            page_content = func(url)
-
-            # Cache the result with an expiration time
-            redis_client.setex(f"cache:{url}", expiration, page_content)
-
-            return page_content
-        return wrapper
-    return decorator
+    @wraps(method)
+    def invoker(url) -> str:
+        '''The wrapper function for caching the output.
+        '''
+        redis_store.incr(f'count:{url}')
+        result = redis_store.get(f'result:{url}')
+        if result:
+            return result.decode('utf-8')
+        result = method(url)
+        redis_store.set(f'count:{url}', 0)
+        redis_store.setex(f'result:{url}', 10, result)
+        return result
+    return invoker
 
 
-def count_requests(func):
-    '''
-    Decorator to count the number of requests made to a particular URL.
-    '''
-    @wraps(func)
-    def wrapper(url: str):
-        # Increment the access count for this URL
-        redis_client.incr(f"count:{url}")
-        return func(url)
-    return wrapper
-
-
-@count_requests
-@cache_page(expiration=10)
+@data_cacher
 def get_page(url: str) -> str:
+    '''Returns the content of a URL after caching the request's response,
+    and tracking the request.
     '''
-    Fetches the content of a URL and returns it as a string.
-    The content is cached for 10 seconds,
-    and the number of accesses is tracked.
-    '''
-    response = requests.get(url)
-    return response.text
+    return requests.get(url).text
