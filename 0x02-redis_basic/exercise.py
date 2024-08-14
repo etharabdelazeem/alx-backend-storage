@@ -18,9 +18,11 @@ def count_calls(method: Callable) -> Callable:
         Wrapper function that increments the call count
         and calls the original method.
         '''
-        key = f"{method.__qualname__}:calls"
+        key = method.__qualname__
         self._redis.incr(key)
         return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class Cache:
@@ -34,6 +36,7 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb(True)
 
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         '''
         Stores a value in a Redis data storage and returns the key.
