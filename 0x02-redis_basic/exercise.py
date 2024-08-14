@@ -93,3 +93,22 @@ class Cache:
         Retrieves data from Redis and converts it to an integer.
         '''
         return self.get(key, int)
+
+    def replay(method: Callable) -> None:
+        '''
+        Display the history of calls of a particular function.
+        '''
+        redis_instance = method.__self__._redis
+        method_name = method.__qualname__
+
+        # Retrieve input and output lists from Redis
+        inputs = redis_instance.lrange(f"{method_name}:inputs", 0, -1)
+        outputs = redis_instance.lrange(f"{method_name}:outputs", 0, -1)
+
+        # Display the number of times the method was called
+        print(f"{method_name} was called {len(inputs)} times:")
+
+        # Loop through inputs and outputs and print them the required format
+        for input_args, output in zip(inputs, outputs):
+            print(f"{method_name}(*{input_args.decode('utf-8')})\
+                    -> {output.decode('utf-8')}")
