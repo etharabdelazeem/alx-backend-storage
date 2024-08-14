@@ -5,6 +5,22 @@ Redis Basics practise
 import redis
 from uuid import uuid4
 from typing import Any, Callable, Union
+import functools
+
+
+def count_calls(method: Callable) -> Callable:
+    '''
+    Decorator to count how many times a method is called.
+    '''
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs) -> Any:
+        '''
+        Wrapper function that increments the call count
+        and calls the original method.
+        '''
+        key = f"{method.__qualname__}:calls"
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
 
 
 class Cache:
